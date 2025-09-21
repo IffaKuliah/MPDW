@@ -1,0 +1,562 @@
+---
+title: "Tugas MPDW praktikum Pertemuan 4"
+author: "Muthi'ah Iffa Karimah"
+date: "2025-09-20"
+output: html_document
+---
+
+# 1. MA(2)
+
+## A. Menggunakan Teknik Manual 
+
+### Bangkitkan data dari set.seed
+
+### Bangkitkan data MA(2) dengan $\theta_1 = 0.4$ dan $\phi_2 = 0.6$ sebanyak 300 data menggunakan fungsi arima.sim
+
+```{r}
+# Set seed agar hasil replikasi sama
+set.seed(123)
+```
+
+### White Noise 
+
+```{r}
+# Menentukan parameter dan panjang data
+n = 300 # Banyak data yang dibangkitkan
+theta1 = 0.4 # theta_1 untuk MA(2)
+theta2 = 0.6 # theta_2 untuk MA(2)
+```
+
+```{r}
+wn = rnorm(300)
+ts.plot(wn)
+```
+
+```{r}
+par(mfrow = c(1, 2)) 
+acf(wn)
+acf(wn, xlim = c(1, 20))
+```
+
+```{r}
+# Asumsi umum 
+ma2_man = numeric(n)
+ma2_man[1] = wn[1] # Y1 = e1
+
+# Untuk t = 2, Y_2 = e2 + theta_1*e1 + theta_2*e0 (denagn e0 = 0)
+ma2_man[2] = wn[2] + theta1 * wn[1]      # Y2 = e2 + theta1*e1
+
+```
+
+```{r}
+# Pembangkitan model MA (2) manual melalui iterasi
+for (t in 3:n) {
+  ma2_man[t] <- wn[t] + theta1 * wn[t - 1] + theta2 * wn[t - 2]
+}
+
+ma2_man
+```
+
+## B. Menggunakan arima.sim
+
+```{r}
+# Membuat data time series dari model MA(2) dengan parameter theta_1 = 0.4 dan theta_2 = 0.6 sebanyak n = 300 observasi 
+ma2_data <- arima.sim(list(order = c(0,0,2), ma = c(0.4, 0.6)), n = 300)
+ma2_data
+```
+
+### Plot Time Series
+
+Melihat pola data
+
+```{r}
+# Membuat time series plot
+ts.plot(ma2_data, main = "Plot Time Series MA(2)", ylab = "Yt")
+```
+
+Fluktuasi acak, cenderung tidak terlihat adanya tren sesuai dengan karakter MA
+
+### Plot ACF (Autocorrelation Function)
+
+Mengidentifikasi keteganntungan antarlag
+
+```{r}
+# Membuat plot fungsi ACF 
+acf(ma2_data, main = "Autocorrelation Function (ACF)")
+```
+
+Ada lag yang cut off di lag ke-2
+
+### Plot PACF (Partial Autocorrelation Function)
+
+Menentukan orde AR
+
+```{r}
+# Membuat plot fungsi PACF
+pacf(ma2_data, main = "Partial Autocorrelation Function (PACF)")
+```
+
+Plot PACF untuk model MA(2) ini menunjukkan adanya tails off
+
+### Plot EACF (Extended Autocorrelation Function)
+
+Mengidentifikasi model MA(q) vs AR(p)
+
+```{r}
+# Mengitung EACF
+library(TSA)
+eacf(ma2_data)
+```
+
+Berdasarkan pola segitiga nol pada plot EACF, terlihat bahwa segitiga nol berada pada ordo AR(0) dan ordo MA(2)
+
+### Scatter Plot 
+
+```{r}
+# Yt
+yt_ma2 = ma2_data[-c(1:3)] # Buang 3 data awal agar sejajar dengan Yt-1, Yt-2, Yt-3
+
+# Yt-1
+yt_1_ma2 = ma2_data[-c(300, 1:2)]  # buang 2 data awal + 1 data akhir
+
+# Yt-2
+yt_2_ma2 = ma2_data[-c((199):300, 1)]  # buang 1 data awal + 2 data akhir
+
+# Yt-3
+yt_3_ma2 = ma2_data[-c((298):300)]  # buang 3 data akhir
+```
+
+```{r}
+# Perbandingan Yt dengan Yt-1
+yt_ma2
+yt_1_ma2
+```
+
+```{r}
+# Perbandingan Yt dengan Yt-2 
+yt_ma2
+yt_2_ma2
+```
+
+```{r}
+# Perbandingan Yt dengan Yt-3
+yt_ma2
+yt_3_ma2
+```
+
+```{r}
+# Scatterplot Yt vs Yt-1
+plot(ma2_data[-300], ma2_data[-1], main = "Scatterplot Yt vs Yt-1", xlab = "Yt-1", ylab = "Yt")
+```
+
+```{r}
+# Scatterplot Yt vs Yt-2
+plot(ma2_data[-c(299:300)], ma2_data[-c(1:2)], main = "Scatterplot Yt vs Yt-2", xlab = "Yt-2", ylab = "Yt")
+```
+
+```{r}
+# Scatterplot Yt vs Yt-3
+plot(ma2_data[-c(298:300)], ma2_data[-c(1:3)], main = "Scatterplot Yt vs Yt-3", xlab = "Yt-3", ylab = "Yt")
+```
+
+### Hitung Autokorelasi dari hasil simulasi 
+
+```{r}
+acf_values <- acf(ma2_data, plot = FALSE)
+acf_values$acf[1:5] # Menampilkan dari lag 1 sampai lag 5 
+```
+
+### Hitung Autokorelasi teoritis untuk MA(2)
+
+Rumus: $\rho_k$ = $\gamma_k$ / $\gamma_0$, dengan
+
+$\gamma_0$ = (1 + $\theta_1^2$+ $\theta_2^2$) \* $\sigma^2$
+
+$\gamma_1$ = ( $\theta_1$ + $\theta_1\theta_2$*)* $\sigma^2$
+
+$\gamma_2$ = $\theta_{2}$ \* $\sigma^2$
+
+$\gamma_k$ = 0 untuk k \> 2
+
+```{r}
+# Hitung theta
+theta1 = 0.4
+theta2 = 0.6
+sigma2 = 1
+```
+
+```{r}
+# Hitung gamma 
+gamma0 = (1 + theta1^2 + theta2^2) * sigma2 # Varians dari proses 
+gamma1 = (theta1 + theta1*theta2) * sigma2 # Kovarians lag 1
+gamma2 = theta2 * sigma2 # Kovarians lag 2
+```
+
+```{r}
+# Hitung rho
+rho1 = gamma1 / gamma0
+rho2 = gamma2 / gamma0
+rho3 = 0
+```
+
+```{r}
+# Tampilkan hasil autokorelasi teoritis untuk MA(2)
+c(rho1, rho2, rho3)
+```
+
+Hasil ACF, PACF, dan EACF menunnjukkan bahwa hasil simulai model MA(2) itu stationer karena
+
+-   ACF cut off setelah lag 2
+
+-   PACF tails off
+
+-   EACF menunjukkan pola sesuai dengan MA(2) yaitu segitiga nol berada pada ordo AR(0)
+
+# 2. AR(2) 
+
+## A. Menggunakan Teknik Manual 
+
+$$ Y_t = e_t+0.5Y_{t-1}+0.2Y_{t-2} $$
+
+### Bangkitkan data dari set.seed
+
+### Bangkitkan data AR(2) dengan $\phi_1 = 0.4$ dan $\phi_2 = 0.6$ sebanyak 300 data menggunakan fungsi arima.sim 
+
+```{r}
+set.seed(1234)
+```
+
+### White Noise 
+
+```{r}
+set.seed(1234)
+n = 300
+wn = rnorm(n)   # white noise
+y_ar2 = numeric(n)  # kosongkan vektor
+
+# Bangkitkan AR(2): Yt = 0.5*Yt-1 + 0.2*Yt-2 + wn[t]
+y_ar2 [1:2] = wn[1:2]  # nilai awal
+for (t in 3:n) {
+  y_ar2[t] <- 0.5*y_ar2[t-1] + 0.2*y_ar2[t-2] + wn[t]
+}
+y_ar2
+```
+
+## B. Menggunakan arima.sim 
+
+```{r}
+ar2 = arima.sim(list(order = c(2,0,0), ar = c(0.5, 0.2)), n = 300)
+ar2
+```
+
+### Plot Simulasi AR(2)
+
+```{r}
+# Plot Simulasi AR(2)
+ts.plot(ar2, main = "Simulasi AR(2)", ylab = "Yt")
+```
+
+### Plot ACF (Autocorrelation Function)
+
+```{r}
+# Plot ACF 
+acf(ar2, main = "ACF AR(2)")
+```
+
+Plot ACF untuk model AR(2) menunjukkan bahwa adanya tails off
+
+### Plot PACF (Partial Autocorrelation Function)
+
+```{r}
+# Plot PACF 
+pacf(ar2, main = "PACF AR(2)")
+```
+
+Plot PACF untuk model AR(2) menunjukkan adanya cut off pada lag 1
+
+### Plot EACF (Extended Autocorrelation Function)
+
+```{r}
+# Menghitung EACF
+library(TSA)
+eacf(ar2)
+```
+
+Berdasarkan pola segitiga nol pada plot EACF, terlihat bahwa segitiga nol berada pada ordo AR(2) dan ordo MA(0).
+
+### Scatterplot
+
+```{r}
+# Buat lag
+yt_ar2   = ar2[4:n]       # Yt
+yt_1_ar2 = ar2[3:(n-1)]   # Yt-1
+yt_2_ar2 = ar2[2:(n-2)]   # Yt-2
+yt_3_ar2 = ar2[1:(n-3)]   # Yt-3
+```
+
+```{r}
+# Perbandingan Yt dengan Yt-1
+yt_ar2
+yt_1_ar2
+```
+
+```{r}
+# Perbandingan Yt dengan Yt-2
+yt_ar2
+yt_2_ar2
+```
+
+```{r}
+# Perbandingan Yt dengan Yt-3
+yt_ar2
+yt_3_ar2
+```
+
+```{r}
+par(mfrow=c(1,3))
+```
+
+```{r}
+# Scatterplot Yt vs Yt-1
+plot(yt_ar2, yt_1_ar2, main="Scatterplot Yt vs Yt-1", xlab="Yt", ylab="Yt-1")
+```
+
+```{r}
+# Scatterplot Yt vs Yt-2
+plot(yt_ar2, yt_2_ar2, main="Scatterplot Yt vs Yt-2", xlab="Yt", ylab="Yt-2")
+```
+
+```{r}
+# Scatterplot Yt vs Yt-3
+plot(yt_ar2, yt_3_ar2, main="Scatterplot Yt vs Yt-3", xlab="Yt", ylab="Yt-3")
+```
+
+### Autokorelasi dari data bangkitan 
+
+$\rho_k$ = $\phi_1$$\rho_{k-1}$+$\phi_2$$\rho_{k-2}$
+
+$\rho_1$ = $\phi_1$/1 - $\phi_2$ ; $\rho_2$ = $\phi1$$\rho_2$+$\rho_2$
+
+```{r}
+phi1 = 0.5
+phi2 = 0.2
+rho_theo = numeric(20) # simpan beberapa lag
+
+# rho0
+rho_theo[1] = 1            
+# rho1
+rho_theo[2] = phi1 / (1 - phi2)        
+# rho2
+rho_theo[3] = phi1 * rho_theo[2] + phi2
+
+# rekursi untuk rho_k (k>=3)
+for (k in 4:20) {
+  rho_theo[k] <- phi1 * rho_theo[k-1] + phi2 * rho_theo[k-2]
+}
+# tampilkan rho1..rho6
+rho_theo[2:7]
+```
+
+### Autokorelasi dari data empiris
+
+```{r}
+acf_emp = acf(ar2, plot = FALSE)$acf[1:6] # Menampilkan data dari lag 1 sampai lag 5
+acf_emp
+```
+
+Hasil ACF, PACF, dan EACF menunnjukkan bahwa hasil simulai model AR(2) itu stationer karena
+
+-   ACF tails off
+
+-   PACF cut off di lag 2
+
+-   EACF menunjukkan pola sesuai dengan MA(2) yaitu segitiga nol berada pada ordo MA(0)
+
+# 3. ARMA(2,2)
+
+Bentuk umum data berpola ARMA:
+
+$$Yt = 0.5 Y_{t-1} + 0.2Y_{t-1} + e_t +0.4e_{t-1} + 0.6*e_{t-2}$$
+
+-   $0.5 Y_{t-1} + 0.2Y_{t-1}$ adalah bagian dari AR
+
+<!-- -->
+
+-   $e_t +0.4e_{t-1} + 0.6*e_{t-2}$ adalah bagian dari MA
+
+Di sini akan dibangkitkan data dengan model ARMA(2,2) dengan $\phi_1 = 0.5$ dan $\phi_2 = 0.2$ kemudian dengan $\theta_1 = 0.4$ dan $\theta_2 = 0.6$ .
+
+## A. Menggunakan Teknik Manual
+
+### Bangkitkan data dari set.seed
+
+### Bangkitkan data AR(2) dengan $\phi_1 = 0.5$ dan $\phi_2 = 0.2$ dan $\theta_1 = 0.4$ dan $\theta_2 = 0.6$  sebanyak 300 data menggunakan fungsi arima.sim.
+
+```{r}
+set.seed(1234) # Mengatur random seed generator
+n = 300 # Banyak data yang akan dibangkitkan
+
+# Koefisien AR dan MA 
+phi1 = 0.5 # koefisien AR lag 1
+phi2 = 0.2 # koefisien AR lag 2
+theta1 = 0.4 # koefisien MA lag 1
+theta2 = 0.6 # koefisien MA lag 2
+
+```
+
+```{r}
+# White noise 
+wn = rnorm(n) 
+
+# Vektor kosong berisi n angka nol
+y.arma = numeric(n) # Akan diisi dengan data deret waktu Yt 
+```
+
+```{r}
+# Iterasi dari t = 3 sampai t = 300
+# Mulai dari t = 3 karena model AR(2) dan MA(2) butuh lag hingga 2
+for (i in 3:n) {
+  y.arma[i] <- phi1 * y.arma[i-1] +
+               phi2 * y.arma[i-2] +
+               wn[i] +
+               theta1 * wn[i-1] +
+               theta2 * wn[i-2]
+}
+
+y.arma
+```
+
+## B. Menggunakan arma.sim
+
+```{r}
+# Kak ini aku ga bisa pake fungsi arma.sim soalnya error terus, udah dicari caranya tapi ttp gabisa :(
+arma22 = arima.sim(model = list(ar = c(0.5, 0.2), ma = c(0.4, 0.6)), n = 300)
+arma22
+```
+
+### Plot simulasi ARMA(2,2)
+
+```{r}
+# Plot simulasi 
+ts.plot(arma22, 
+        main="Simulasi ARMA(2,2)", 
+        ylab="Yt")
+```
+
+### Plot ACF (Autocorrelation Function)
+
+```{r}
+# Plot ACF 
+acf(arma22, main="ACF ARMA(2,2)") 
+```
+
+Plot ACF dari ARMA(2,2) yang sudah dibangkitkan menunjukkan adanya tails off.
+
+Hal ini menandakan adanya ciri khas dari komponen AR
+
+### Plot PACF (Partial Autocorrelation Function)
+
+```{r}
+# Plot PACF 
+pacf(arma22, main="PACF ARMA(2,2)")
+```
+
+Plot PACF dari ARMA(2,2) yang sudah dibangkitkan menunjukkan adanya cut off di lag 2.
+
+Hal ini menandakan adanya ciri khas dari komponen MA
+
+### Plot EACF (Extended Autocorrelation Function)
+
+```{r}
+# Plot EACF
+library(TSA)
+eacf(arma22)
+```
+
+Berdasarkan pola segitiga nol pada plot EACF, terlihat bahwa segitiga nol berada pada ordo AR(2) dan ordo MA(2).
+
+### Scatterplot 
+
+```{r}
+# Yt
+yt_arma22 = arma22[-c(1:3)]
+
+# Yt-1
+yt_1_arma22 = arma22[-c((n-2):n)]
+
+# Yt-2
+yt_2_arma22 = arma22[-c((n-1):n)]
+yt_2_arma22 = yt_2_arma22[-1]       
+
+# Yt-3
+yt_3_arma22 = arma22[-n]          
+yt_3_arma22 = yt_3_arma22[-c(1:2)]  
+```
+
+```{r}
+# Perbandingan Yt dengan Yt-1
+yt_arma22
+yt_1_arma22
+```
+
+```{r}
+# Perbandingan Yt dengan Yt-2
+yt_arma22
+yt_2_arma22
+```
+
+```{r}
+# Perbandingan Yt dengan Yt-3
+yt_arma22
+yt_3_arma22
+```
+
+```{r}
+# Scatterplot Yt vs Yt-1
+plot(arma22[-n], arma22[-1],            
+     main="Scatterplot Yt vs Yt-1", 
+     xlab="Yt-1", ylab="Yt")
+```
+
+```{r}
+# Scatterplot Yt vs Yt-2
+plot(arma22[-c(n, n-1)], arma22[-c(1,2)],
+     main="Scatterplot Yt vs Yt-2", 
+     xlab="Yt-2", ylab="Yt")
+```
+
+```{r}
+# Scatterplot Yt vs Yt-3
+plot(arma22[-c(n, n-1, n-2)], 
+     arma22[-c(1,2,3)],
+     main="Scatterplot Yt vs Yt-3", 
+     xlab="Yt-3", ylab="Yt")
+```
+
+## Autokorelasi dari data bangkitan 
+
+```{r}
+# hitung ACF dari data bangkitan
+acf_values <- acf(arma22, plot=FALSE)   
+
+# tampilkan autokorelasi lag 1-3
+acf_values$acf[2:4]                       
+```
+
+## Autokorelasi dari empiris
+
+```{r}
+library(stats)
+
+# Fungsi teoretis: gunakan ARMAacf
+acf_theory <- ARMAacf(ar=c(0.5,0.2), ma=c(0.4,0.6), lag.max=10)
+acf_theory[2:4]                          
+```
+
+Hasil ACF, PACF, dan EACF menunnjukkan bahwa hasil simulai model ARMA(2,2) itu stationer karena
+
+-   ACF tails off
+
+-   PACF cut off di lag 2
+
+-   EACF menunjukkan pola sesuai dengan MA(2) yaitu segitiga nol berada pada ordo MA(2)
