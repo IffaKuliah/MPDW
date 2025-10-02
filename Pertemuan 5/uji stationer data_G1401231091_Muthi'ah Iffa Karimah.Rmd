@@ -1,0 +1,109 @@
+---
+title: "Uji Stationer_MPDW Praktikum"
+author: "Muthi'ah Iffa Karimah"
+date: "2025-10-02"
+output: html_document
+---
+
+```{r}
+library(readxl)
+library(tseries)
+library(urca)
+library(tseries)
+```
+
+# Import Data
+
+```{r}
+data.sales = read_excel("C:\\Users\\MUTHI'AH IFFA\\Downloads\\Semester 5\\MPDW\\Praktikum\\Tugas Mandiri Iffa_MPDW_(store sales) 301_400.xlsx")
+```
+
+# Cek Struktur Data
+
+```{r}
+data.sales
+str(data.sales)
+head(data.sales)
+```
+
+# Buat Data Time Series 
+
+```{r}
+# Ammbil kolom nilai penjualan
+y = data.sales$Total_Sales
+head(y)
+```
+
+```{r}
+# Buat Objek Time series 
+ts.data = ts(y, frequency = 1, start = 1) # frequency 1 karena data berjumlah 100
+head(ts.data)
+```
+
+data bulanan –\> frquency = 12 (karena 12 bulan/tahun)
+
+data kuartal –\> frequency = 4
+
+data harian satu tahun penuh –\> frequency = 365
+
+tidak tahu ada musiman/data pendek –\> frequency = 1
+
+```{r}
+# Plot deret waktu 
+plot(ts.data, 
+     main = "Total Sales (Time Series)",
+     ylab = "Total Sales", 
+     xlab = "Observation (1-100)")
+```
+
+-   Data tidak menunjukkan adanya tren/musiman terlihat jelas.
+
+-   Pergerakan rataan relatif konstan di sekitar 240.
+
+-   Ragam juga cenderung stabil karena sebaran data cenderung terlihat sama.
+
+Artinya dari grafik dapat diasumsikan bahwa data sudah stationer, namun agar lebih terlihat dan teruji bahwa data stationer akan dilakukan beberapa uji.
+
+# Cek Stationeritas
+
+```{r}
+# Plot ACF dan PACF 
+acf(ts.data, main = "ACF - Total Sales") # plot ACF
+pacf(ts.data, main = "PACF - Total Sales") # plot PACF
+```
+
+# Uji stationeritas
+
+## ADF Test
+
+ADF test mendeteksi unit root
+
+$H_0$ = data tidak stationer
+
+$H_1$ = data stationer
+
+tolak $H_0$ ketika \< 0.05
+
+```{r}
+# Uji ADF 
+adf.test(ts.data) 
+```
+
+$p-value$ berdasarkan uji ADF bernilai 0.01, artinya $p-value$ \< 0.05 maka tolak $H_0$. Artinya dapat disimpulkan **data sudah stationer.**
+
+## KPSS (Kwiatkowski-Phillips-Schmidt-Shin) Test
+
+KPSS test mendeteksi kestationeran di sekitar mean atau tren
+
+$H_0$ = data stationer
+
+$H_1$ = data tidak stationer
+
+tolak $H_0$ ketika p-value \< 0.05
+
+```{r}
+# Uji KPSS 
+kpss.test(ts.data)
+```
+
+$p-value$ berdasarkan uji KPSS bernilai 0.121043 artinya $p-value$ \> 0.05 maka gagal tolak $H_0$. Artinya dapat disimpulkan **data sudah stationer.**
