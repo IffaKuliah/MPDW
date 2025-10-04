@@ -1,0 +1,369 @@
+---
+title: "Pemodelan_MPDW Praktikum"
+author: "Muthi'ah Iffa Karimah"
+date: "2025-10-02"
+output: html_document
+---
+
+```{r}
+library(readxl)
+library(tseries)
+library(urca)
+library(tseries)
+library(tinytex)
+library(TSA)
+library(AICcmodavg)
+library(lmtest)
+library(forecast)
+```
+
+# Import Data
+
+```{r}
+data.sales = read_excel("C:\\Users\\MUTHI'AH IFFA\\Downloads\\Semester 5\\MPDW\\Praktikum\\Tugas Mandiri Iffa_MPDW_(store sales) 301_400.xlsx")
+data.sales = data.sales[1:100,]
+data.sales.ts = ts(data.sales)
+```
+
+# Cek Struktur Data
+
+```{r}
+data.sales
+str(data.sales)
+head(data.sales)
+```
+
+# Buat Data Time Series & Cek Stationeritas
+
+```{r}
+# Ambil kolom nilai penjualan
+y = data.sales$Total_Sales
+head(y)
+```
+
+```{r}
+# Buat Objek Time series 
+ts.data = ts(y, frequency = 1, start = 1) # frequency 1 karena data berjumlah 100
+head(ts.data)
+```
+
+data bulanan –\> frquency = 12 (karena 12 bulan/tahun)
+
+data kuartal –\> frequency = 4
+
+data harian satu tahun penuh –\> frequency = 365
+
+tidak tahu ada musiman/data pendek –\> frequency = 1
+
+```{r}
+# Plot deret waktu 
+plot(ts.data, 
+     main = "Total Sales (Time Series)",
+     ylab = "Total Sales", 
+     xlab = "Observation (1-100)")
+```
+
+```{r}
+# Plot ACF dan PACF 
+acf(ts.data, main = "ACF - Total Sales") # plot ACF
+pacf(ts.data, main = "PACF - Total Sales") # plot PACF
+```
+
+# Uji stationeritas
+
+## ADF Test
+
+ADF test mendeteksi unit root
+
+$H_0$ = data tidak stationer
+
+$H_1$ = data stationer
+
+tolak $H_0$ ketika \< 0.05
+
+```{r}
+# Uji ADF 
+adf.test(ts.data) 
+```
+
+## KPSS (Kwiatkowski-Phillips-Schmidt-Shin) Test
+
+KPSS test mendeteksi kestationeran di sekitar mean atau tren
+
+$H_0$ = data stationer
+
+$H_1$ = data tidak stationer
+
+tolak $H_0$ ketika p-value \< 0.05
+
+```{r}
+# Uji KPSS 
+kpss.test(ts.data)
+```
+
+# Pemodelan
+
+Menggunakan data.sales dengan 100 amatan yang sudah dicek stationeritasnya.
+
+## Eksplorasi Data
+
+```{r}
+plot.ts(ts.data, lty = 1, xlab = "waktu", ylab = "Total Sales", main = "Plot Total Sales")
+```
+
+berdasarkan plot deret waktu dari data.sales terlihat bahwa data amatan cenderung sudah staitioner.
+
+pembagian data akan dilakukan dengan proporsi 80:20
+
+```{r}
+# Data latih 
+sales.train = data.sales$Total_Sales[1:80]
+train.ts = ts(sales.train)
+plot.ts(sales.train, 
+        lty = 1, 
+        xlab = "Waktu", 
+        ylab = "Total Sales", 
+        main = "Plot Sales Train")
+```
+
+```{r}
+# Data test  
+sales.test = data.sales$Total_Sales[81:100]
+test.ts = ts(sales.test)
+plot.ts(sales.test, 
+        lty = 1, 
+        xlab = "Waktu",
+        ylab = "Total Sales",
+        main = "Plot Sales Train")
+```
+
+## Plot Data Uji
+
+### Uji Stationeritas data
+
+```{r}
+# Data latih 
+acf(sales.test)
+```
+
+Berdasarkan plot ACF dapat terlihat bahwa data menurun secara perlahan (tails off), ini mengindikasikan bahwa data tidak stationer dalam rataan.
+
+### Uji ADF
+
+$H_0$ = Data tidak stationer dalam rataan
+
+$H_1$ = Data stationer dalam rataan
+
+Tolak $H_0$ ketika $p-value$ \< 0.05
+
+```{r}
+tseries::adf.test(sales.train)
+```
+
+Hasil ADF menunjukkan bahwa didapat $p-value$ = 0.01 yang lebih kecil dari taraf nyata 5% ($p-value$ \< 0.05). Artinya tolak $H_0$ dapat disimpulkan bahwa **data stationer dalam rataan.**
+
+Maka tidak diperlukan transformasi box-cox
+
+### Plot ACF
+
+```{r}
+# Plot ACF 
+acf(sales.train, lag.max = 10)
+```
+
+Berdasarkan plot PACF data cenderung cut off pada lag ke-3 dan ke-4, maka model ARIMA nya adalah (0, 0, 2)
+
+### Plot PACF
+
+```{r}
+pacf(sales.train, lag.max = 15)
+```
+
+Berdasarkan plot PACF data cenderung cut off pada lag ke-3 dan ke-6, maka model ARIMA nya adalah (2, 0, 0)
+
+Jika plot ACF dan PACF dianggap tails off, maka model yang terbentuk adalah ARIMA (2, 0, 2)
+
+### Plot EACF
+
+```{r}
+eacf(sales.train)
+```
+
+Identifikasi model dengan plot EACF, terbentuk pola ujung segitiga nol. Model tentatif yang terbentuk adalah ARIMA (3, 0, 3)
+
+(kak ini kyk gimana yah aku bingung di plot ACF, PACF, sama EACF kok modelnya beda beda yah... minta feedbacknya kak boleh tak:)?)
+
+# Pendugaan Parameter Model Tentatif
+
+```{r}
+# ARIMA (0,0,2)
+model1.da = Arima(sales.train, order = c(0,0,2), method = "ML")
+summary(model1.da)
+```
+
+```{r}
+lmtest::coeftest(model1.da)
+```
+
+```{r}
+# ARIMA (2,0,0)
+model2.da = Arima(sales.train, order = c(2,0,0), method = "ML")
+summary(model2.da)
+```
+
+```{r}
+lmtest::coeftest(model2.da)
+```
+
+```{r}
+# ARIMA (3,0,3)
+model3.da = Arima(sales.train, order = c(3,0,3), method = "ML")
+summary(model3.da)
+```
+
+```{r}
+lmtest::coeftest(model3.da)
+```
+
+```{r}
+# Cek signifikansi parameter tiap model
+models <- list(
+  "ARIMA(0,0,2)" = model1.da,
+  "ARIMA(2,0,0)" = model2.da,
+  "ARIMA(3,0,3)" = model3.da
+)
+
+lapply(models, coeftest)
+```
+
+Untuk cari model overfitting, identifikasi AIC terkecil dan seluruh parameternya signifikan.
+
+Pada hasil analisis tersebut didapatkan nilai AIC terkecil yaitu model ARIMA(0,0,2) dan ARIMA(3,0,3). Namun, pada kasus ini dipilih model dengan AIC terkecil, semua parameternya signifikan, dan model yang paling sederhana. Artinya model ARIMA(0,0,2) yang akan dipilih.
+
+# Analisis Sisaan
+
+Model terbaik hasil identifikasi kemudian dicek asumsi sisaannya. Sisaan model ARIMA harus memenuhi asumsi normalitas, kebebasan sisaan, dan kehomogenan ragam. Diagnostik model dilakukan secara eksplorasi dan uji formal.
+
+### Eksplorasi
+
+```{r}
+# Eksplorasi 
+sisaan.da = model2.da$residuals
+par(mforw = c(2,2))
+qqnorm(sisaan.da)
+qqline(sisaan.da,
+       col = "blue",
+       lwd = 1)
+plot(c(1:length(sisaan.da)),
+     sisaan.da)
+acf(sisaan.da, lag.max = 20)
+pacf(sisaan.da, lag.max = 20)
+```
+
+# Eksplorasi Sisaan
+
+```{r}
+par(mfrow = c(1,1))
+```
+
+### Uji Formal
+
+```{r}
+# Sisaan menyebar normal 
+ks.test(sisaan.da, "pnorm") # tak tolak H0 > sisaan menyebar normal
+```
+
+$H_0$ = Sisaan menyebar normal
+
+$H_1$ = Sisaan tidak menyebar normal
+
+Berdasarkan hasil uji KS didapatkan nilai $p-value$ \< 2.2e-16 yang kurang dari taraf nyata 5% ( $p-value$ \< 0.05). Sehingga dapat disimpulkan tolak $H_0$, artinya sisaan tidak menyebar normal.
+
+```{r}
+# Sisaan saling bebas (tidak ada autokorelasi)
+Box.test(sisaan.da, type = "Ljung") # tak tollak H0 > sisaan saling bebas
+```
+
+$H _0$ = Sisaan saling bebas
+
+$H_1$ = Sisaan tidak saling bebas
+
+Berdasarkan hasil Ljung-Box didapatkan hasil $p-value$ = 0.8457 yang lebih besar dari taraf nyata 5% ($p-value$ \> 0.05). Sehingga tak tolak $H_0$, artinya sisaan saling bebas.
+
+```{r}
+# Sisaan Homogen
+Box.test((sisaan.da)^2, type = "Ljung") # tak tolak H0 > sisaan homogen
+```
+
+$H_0$ = Ragam sisaan homogen
+
+$H_1$ = Ragam sisaan tidak homogen
+
+Berdasarkan hasil Ljung-Box terhadap sisaan kuadrat tersebut didapatkan hasil $p-value$ = 0.0836 yang lebih besar dari taraf nyata 5% ($p-value$ \> 0.05). Sehingga tak tolak $H_0$, artinya ragam sisaan homogen.
+
+```{r}
+# Nilai tengah sisaan = 0
+t.test(sisaan.da,
+       mu = 0,
+       conf.level = 0.95) # tak tolak Ho > nilai tengah sisaan = 0 
+```
+
+# Overfitting
+
+$H_0$ = Nilai tengah sisaan sama dengan 0
+
+$H_1$ = Nilai tengah sisaan tidak sama dengan 0
+
+Berdasarkan hasil Ljung-Box terhadap sisaan kuadrat tersebut didapatkan hasil $p-value$ = 0.9977 yang lebih besar dari taraf nyata 5% ($p-value$ \> 0.05). Sehingga tak tolak $H_0$, artinya nilai tengah sisaan sama dengan 0.
+
+# Peramalan
+
+```{r}
+# Forecast 
+ramalan = forecast::forecast(model2.da, h = 20)
+
+# Ambil hasil prediksi
+hasil = as.numeric(ramalan$mean)
+
+# Buat perbandingan dengan data aktual
+perbandingan <- data.frame(
+  Aktual = as.numeric(head(test.ts, n = 20)),
+  Forecast = hasil
+)
+
+perbandingan
+
+```
+
+```{r}
+# Forecast sesuai panjang test
+horizon <- length(test.ts)
+ramalan <- forecast::forecast(model2.da, h = horizon)
+
+# Plot train + test + forecast
+ts.plot(train.ts, xlim = c(1, length(train.ts) + horizon), col = "black", lwd = 2)
+lines((length(train.ts)+1):(length(train.ts)+horizon), test.ts, col = "blue", lwd = 2)
+lines((length(train.ts)+1):(length(train.ts)+horizon), ramalan$mean, col = "red", lwd = 2, lty = 2)
+
+legend("topleft", legend = c("Train", "Test", "Forecast"),
+       col = c("black", "blue", "red"), lty = c(1,1,2), lwd = 2, bty = "n")
+
+```
+
+(aneh banget)
+
+```{r}
+perbandingan = matrix(data = c(head(test.ts, 
+                n = 30),
+                hasil[-1]), 
+                nrow = 30, 
+                ncol = 2)
+colnames(perbandingan) = c("Aktual", "Hasil Forecast")
+perbandingan
+```
+
+```{r}
+horizon <- length(test.ts)
+ramalan <- forecast(model2.da, h = horizon)
+accuracy(ramalan, sales.test)
+```
